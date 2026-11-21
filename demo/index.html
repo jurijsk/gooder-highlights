@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gooder-highlights demo</title>
+<link rel="stylesheet" href="../src/ui.css">
+<style>
+	:root { color-scheme: light dark; }
+	body { margin: 0; font: 16px/1.6 Georgia, serif; background: Canvas; color: CanvasText; }
+	main { max-width: 680px; margin: 0 auto; padding: 48px 24px 120px; }
+	table { border-collapse: collapse; margin: 16px 0; }
+	td, th { border: 1px solid #8884; padding: 4px 10px; }
+	textarea { width: 100%; height: 60px; font: inherit; }
+</style>
+</head>
+<body>
+<main>
+	<h1>The harbour</h1>
+	<p id="p1">The harbour was quiet. Ships waited for the tide, their lamps low, while the pilot boat crossed to the outer mark and the storm signal went up.</p>
+	<p id="p2">The tide came in slowly. The tide went out faster than anyone expected, and the pilot boat came back before dark.</p>
+	<table>
+		<tr><th>Ship</th><th>Berth</th></tr>
+		<tr><td id="c1">Northern Star</td><td id="c2">Berth seven</td></tr>
+		<tr><td>Grey Gull</td><td>Berth two</td></tr>
+	</table>
+	<div id="spacer" style="height: 1600px" aria-hidden="true"></div>
+	<p id="p3">At night the lamps along the quay were lit one by one, and the harbour master wrote the day's arrivals in the book.</p>
+	<p><label>A field, where Delete deletes text: <textarea id="field">Type here</textarea></label></p>
+</main>
+<script src="dist/demo.js"></script>
+</body>
+</html>

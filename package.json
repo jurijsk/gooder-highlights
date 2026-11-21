@@ -1,0 +1,67 @@
+{
+	"name": "gooder-highlights",
+	"version": "0.1.0",
+	"description": "Keep passages of a web page highlighted: across reloads, as the page changes around them, and for everyone who opens it. Painted with the CSS Custom Highlight API (the DOM untouched), anchored with W3C Web Annotation selectors, stored wherever the application likes.",
+	"keywords": [
+		"highlight",
+		"highlighter",
+		"annotation",
+		"web-annotation",
+		"text-quote-selector",
+		"text-fragment",
+		"css-custom-highlight-api"
+	],
+	"author": "Jurijs Kovzels",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/jurijsk/gooder-highlights.git"
+	},
+	"files": [
+		"dist",
+		"src/ui.css",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./places": {
+			"types": "./dist/places/index.d.ts",
+			"import": "./dist/places/index.js"
+		},
+		"./ui": {
+			"types": "./dist/ui/panel.d.ts",
+			"import": "./dist/ui/panel.js"
+		},
+		"./ui.css": "./src/ui.css",
+		"./store": {
+			"types": "./dist/store.d.ts",
+			"import": "./dist/store.js"
+		}
+	},
+	"scripts": {
+		"compile": "npm run build",
+		"typecheck": "tsc --noEmit",
+		"build": "node scripts/css-module.mjs && tsc -p tsconfig.build.json",
+		"clean": "node -e \"import('node:fs').then((fs)=>fs.rmSync('dist',{recursive:true,force:true}))\"",
+		"prepublishOnly": "npm run clean && npm run build",
+		"test": "vitest run",
+		"bundle:demo": "esbuild demo/demo.ts --bundle --format=iife --outfile=demo/dist/demo.js && esbuild demo/frame-demo.ts --bundle --format=iife --outfile=demo/dist/frame-demo.js",
+		"serve": "node scripts/serve.mjs",
+		"dev": "npm run bundle:demo && npm run serve",
+		"test:e2e": "npm run bundle:demo && playwright test"
+	},
+	"devDependencies": {
+		"@playwright/test": "~1.58.2",
+		"esbuild": "^0.28.1",
+		"jsdom": "^27.0.0",
+		"typescript": "^5.0.0",
+		"vitest": "^4.1.6"
+	}
+}
