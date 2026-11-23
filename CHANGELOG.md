@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0
 
 - First version: highlights anchored with W3C Web Annotation selectors and painted with the CSS Custom Highlight API; the pen model; a palette of five colours that a document names, changes and adds to; records in, changes out (`load`, `onChange`, `apply`); orphans kept; text fragments made from anchors.
 - `gooder-highlights/places`: remembering, finding and tinting passages, on their own.
