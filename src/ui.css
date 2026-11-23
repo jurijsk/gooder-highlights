@@ -55,8 +55,8 @@
 	cursor: pointer;
 }
 .gooder-highlights-panel .gh-swatch[aria-pressed='true'] {
-	outline: 2px solid var(--gh-focus);
-	outline-offset: 1px;
+	border-color: var(--gh-focus);
+	box-shadow: 0 0 0 1px var(--gh-focus);
 }
 .gooder-highlights-panel button.gh-erase,
 .gooder-highlights-panel button.gh-settings {
@@ -73,8 +73,8 @@
 	cursor: pointer;
 }
 .gooder-highlights-panel button.gh-settings[aria-expanded='true'] {
-	outline: 2px solid var(--gh-focus);
-	outline-offset: 1px;
+	border-color: var(--gh-focus);
+	box-shadow: 0 0 0 1px var(--gh-focus);
 }
 .gooder-highlights-panel .gh-colors {
 	padding-top: 2px;

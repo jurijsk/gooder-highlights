@@ -10,3 +10,4 @@
 - The panel's drag captures the pointer: it ends on the release wherever that happens, on a cancel, when the window loses focus, and on a move with no button held; the panel is kept whole in the view (or in `bounds`, a client's part of it), and `keepInView()` puts it back when that part changes; with `keepVisible: 'grip'`, only the grip has to stay in, the rest free to go under what lies past the edge.
 - `setActive(id)`: the highlight picked is painted brighter (its colour once more over itself); the default UI marks the one it would recolour or erase.
 - `gooder-highlights/store`: the default store, in `localStorage`.
+- `put(record)`: a highlight put in as a record says, and reported: one erased put back (an undo), or one there already as it was before (its colour, its `data`).

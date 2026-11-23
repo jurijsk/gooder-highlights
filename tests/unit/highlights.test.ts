@@ -112,6 +112,26 @@ describe('highlights', () => {
 		expect(made.record.color).toBe(own.id);
 	});
 
+	it('puts one back as it was: an erased one is added again, a changed one updated, each reported; the same record again reports nothing', () => {
+		const a = h.add(rangeOfText('Ships waited'), 'yellow')!;
+		const before = a.record;
+		h.remove(before.id);
+		changes = [];
+		const back = h.put(before)!;
+		expect(back.text).toBe('Ships waited');
+		expect(changes).toHaveLength(1);
+		expect(changes[0]!.added.map((r) => r.id)).toEqual([before.id]);
+		h.recolor(before.id, 'pink');
+		changes = [];
+		h.put({ ...before, data: { thread: 'c8' } });
+		expect(h.get(before.id)!.record).toMatchObject({ color: 'yellow', data: { thread: 'c8' } });
+		expect(changes[0]!.updated.map((r) => r.id)).toEqual([before.id]);
+		changes = [];
+		h.put(h.get(before.id)!.record);
+		expect(changes).toHaveLength(0);
+		expect(h.put({ ...before, color: 'no-such-colour' })).toBeNull();
+	});
+
 	it('refuses a colour the palette has not got', () => {
 		expect(h.add(rangeOfText('lamps'), 'violet')).toBeNull();
 	});

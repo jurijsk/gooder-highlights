@@ -67,6 +67,11 @@ export interface Highlights {
 	add(range: Range, color?: string): Highlight | null;
 	remove(id: string): void;
 	recolor(id: string, color: string): void;
+	/**
+	 * Put a highlight in as `record` says, reported as a change: one erased, back as it was (an undo), or one there already as it was before (its colour, its `data`). Its colour must be in
+	 * the palette. Returns it as the page has it, null when the record doesn't read.
+	 */
+	put(record: HighlightRecord): Highlight | null;
 	/** The highlight under a point of the viewport. */
 	at(x: number, y: number): Highlight | null;
 	/** The highlight a selection lies in, or a collapsed range (a caret) is in. */
@@ -353,6 +358,26 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 			stored = pruned;
 			report({ added: [], updated: [next], removed: [], ...(paletteChanged ? { palette: stored } : {}) });
 			updated();
+		},
+
+		put(record) {
+			if (!isRecord(record) || !entries().some((e) => e.id === record.color)) {
+				return null;
+			}
+			const at = records.findIndex((x) => x.id === record.id);
+			if (at >= 0 && JSON.stringify(records[at]) === JSON.stringify(record)) {
+				return view_(records[at]!);
+			}
+			records = at >= 0 ? records.map((x, i) => (i === at ? record : x)) : [...records, record];
+			const span = spanOfAnchor(fresh(), record.anchor);
+			found.set(record.id, { span, range: span ? rangeForSpan(fresh(), span[0], span[1]) : null });
+			if (record.id === activeId) {
+				writeRules();
+			}
+			paintAll();
+			report(at >= 0 ? { added: [], updated: [record], removed: [] } : { added: [record], updated: [], removed: [] });
+			updated();
+			return view_(record);
 		},
 
 		at(x, y) {
