@@ -159,3 +159,103 @@ describe('two sets of highlights in one document', () => {
 		expect(highlightName('yellow', 2)).toBe('gooder-highlight-2-yellow');
 	});
 });
+
+describe('a root the page replaces', () => {
+	const prose = (): HTMLElement => {
+		document.body.innerHTML = '<article class="prose"><p>The harbour was quiet. Ships waited for the tide.</p><p>The pilot boat crossed to the outer mark.</p></article>';
+		return document.querySelector<HTMLElement>('.prose')!;
+	};
+	/** The page draws the same text again as a new element, as a framework does. */
+	const redraw = (): HTMLElement => {
+		const old = document.querySelector<HTMLElement>('.prose')!;
+		const next = old.cloneNode(true) as HTMLElement;
+		old.replaceWith(next);
+		return next;
+	};
+	const until = async (done: () => boolean): Promise<void> => {
+		for (let i = 0; i < 50 && !done(); i++) {
+			await new Promise((r) => setTimeout(r, 10));
+		}
+	};
+
+	it('given as an element, stays on it: a range in the new one is not its text', () => {
+		const old = prose();
+		const fixed = createHighlights(old, { observe: false });
+		redraw();
+		expect(fixed.add(rangeOfText('pilot boat'))).toBeNull();
+		expect(fixed.root).toBe(old);
+		fixed.dispose();
+	});
+
+	it('given as a function, moves to the new element at once on the next call: found there, and a range in it highlighted', () => {
+		const old = prose();
+		const moving = createHighlights(() => document.querySelector('.prose'), { observe: false });
+		expect(moving.root).toBe(old);
+		const a = moving.add(rangeOfText('Ships waited'))!;
+		const reported: Change[] = [];
+		moving.onChange((c) => reported.push(c));
+		const next = redraw();
+		const b = moving.add(rangeOfText('pilot boat'));
+		expect(b?.text).toBe('pilot boat');
+		expect(moving.root).toBe(next);
+		const kept = moving.get(a.record.id)!;
+		expect(kept.orphaned).toBe(false);
+		expect(next.contains(kept.range!.startContainer)).toBe(true);
+		expect(reported.map((c) => c.added.length)).toEqual([1]); // the add, and nothing for the move
+		moving.dispose();
+	});
+
+	it('given as a function, follows by itself: records, the one picked and the listeners kept; updated, nothing reported', async () => {
+		prose();
+		const moving = createHighlights(() => document.querySelector('.prose'));
+		const a = moving.add(rangeOfText('outer mark'), 'green')!;
+		moving.setActive(a.record.id);
+		let updates = 0;
+		const reported: Change[] = [];
+		moving.onUpdate(() => updates++);
+		moving.onChange((c) => reported.push(c));
+		const next = redraw();
+		await until(() => updates > 0);
+		expect(updates).toBeGreaterThan(0);
+		expect(reported).toEqual([]);
+		const kept = moving.get(a.record.id)!;
+		expect(kept.record.color).toBe('green');
+		expect(next.contains(kept.range!.startContainer)).toBe(true);
+		expect(moving.root).toBe(next);
+		moving.recolor(a.record.id, 'pink');
+		expect(reported.at(-1)!.updated[0]!.color).toBe('pink');
+		moving.dispose();
+	});
+
+	it('waits while the function finds nothing, and moves when the new element comes', async () => {
+		const old = prose();
+		const moving = createHighlights(() => document.querySelector('.prose'));
+		const a = moving.add(rangeOfText('harbour'))!;
+		const parent = old.parentNode!;
+		const copy = old.cloneNode(true) as HTMLElement;
+		old.remove();
+		await new Promise((r) => setTimeout(r, 40));
+		expect(moving.root).toBe(old);
+		parent.appendChild(copy);
+		await until(() => moving.get(a.record.id)!.range?.startContainer.isConnected === true);
+		expect(copy.contains(moving.get(a.record.id)!.range!.startContainer)).toBe(true);
+		moving.dispose();
+	});
+
+	it('stops following once disposed', async () => {
+		const old = prose();
+		const moving = createHighlights(() => document.querySelector('.prose'));
+		let updates = 0;
+		moving.onUpdate(() => updates++);
+		moving.dispose();
+		redraw();
+		await new Promise((r) => setTimeout(r, 40));
+		expect(updates).toBe(0);
+		expect(moving.root).toBe(old);
+	});
+
+	it('refuses a function that finds no root', () => {
+		document.body.innerHTML = '';
+		expect(() => createHighlights(() => null)).toThrow(/found no node/);
+	});
+});

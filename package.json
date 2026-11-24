@@ -1,6 +1,6 @@
 {
 	"name": "gooder-highlights",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Keep passages of a web page highlighted: across reloads, as the page changes around them, and for everyone who opens it. Painted with the CSS Custom Highlight API (the DOM untouched), anchored with W3C Web Annotation selectors, stored wherever the application likes.",
 	"keywords": [
 		"highlight",

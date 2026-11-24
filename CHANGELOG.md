@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0
+
+- `createHighlights` takes a function that finds the root, as well as the root itself: given one, the highlights follow the root when the page replaces it with a new element (a framework drawing the same text again), found again and painted there, with their records, palette, the highlight picked and listeners kept; `root` reads as the element found last.
+
 ## 0.1.0
 
 - First version: highlights anchored with W3C Web Annotation selectors and painted with the CSS Custom Highlight API; the pen model; a palette of five colours that a document names, changes and adds to; records in, changes out (`load`, `onChange`, `apply`); orphans kept; text fragments made from anchors.

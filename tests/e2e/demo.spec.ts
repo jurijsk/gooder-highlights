@@ -146,6 +146,28 @@ test('the page changes: found again; its passage gone: orphaned and kept; back: 
 	await expect.poll(() => texts(page)).toEqual(['went out faster']);
 });
 
+test('the page draws its text again as a new element: painted in the new one, and a selection in it highlighted', async ({ page }) => {
+	await select(page, 'p1', 'Ships waited');
+	await page.getByRole('button', { name: 'yellow' }).click();
+	expect(await painted(page)).toEqual({ yellow: 1 });
+	await page.evaluate(() => {
+		const old = document.querySelector('main')!;
+		old.replaceWith(old.cloneNode(true));
+	});
+	// Read from the Highlight API only, not through the library, so the move must have happened by itself.
+	const inNewMain = (): Promise<boolean[]> =>
+		page.evaluate(() => {
+			const main = document.querySelector('main')!;
+			const ranges = [...(CSS as unknown as { highlights: Map<string, Set<Range>> }).highlights.get('gooder-highlight-yellow') ?? []];
+			return ranges.map((r) => main.contains(r.startContainer));
+		});
+	await expect.poll(inNewMain).toEqual([true]);
+	await select(page, 'p2', 'went out faster');
+	await page.getByRole('button', { name: 'green' }).click();
+	expect(await painted(page)).toEqual({ yellow: 1, green: 1 });
+	expect(await texts(page)).toEqual(['Ships waited', 'went out faster']);
+});
+
 test('a selection across two paragraphs, and across table cells, is one highlight each', async ({ page }) => {
 	await select(page, 'p1', 'storm signal', { id: 'p2', text: 'The tide came' });
 	await page.getByRole('button', { name: 'yellow' }).click();

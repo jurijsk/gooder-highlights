@@ -35,6 +35,16 @@ highlightsPanel(highlights);
 
 Select text, click a swatch. Click a highlight (or put the caret in it) to recolour it, or erase it with the eraser or Delete. The gear opens the colours, to change one or name it; the five are the colours there are (a client can add more through the API). Ctrl+Shift+H highlights the selection in the last colour used. Drag the panel by its grip; it stays where you put it.
 
+## A page that draws its text again
+
+A framework may replace the element the highlights are in with a new one holding the same text (a component drawn again, a hot update). Give `createHighlights` a function that finds the element, not the element itself, and the highlights follow it:
+
+```ts
+const highlights = createHighlights(() => document.querySelector('.report_prose'));
+```
+
+When the element held has left the document and the function returns another, the highlights move there: the text is read again, every highlight found again in it and painted. Records, palette, the highlight picked and listeners stay; nothing is reported to `onChange`, and `onUpdate` is told. `highlights.root` is the element found last. The document is watched for the replacement (one check per frame) unless `observe` is `false`; either way, every call checks first, so one made right after the replacement works on the new element. The function must find an element when `createHighlights` is called.
+
 ## Your own storage
 
 ```ts

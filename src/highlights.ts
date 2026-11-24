@@ -54,11 +54,21 @@ export type Scheme = 'light' | 'dark' | 'auto';
 export interface HighlightsOptions {
 	/** Light or dark values: `auto` (the default) follows `prefers-color-scheme` in the page's window. */
 	readonly scheme?: Scheme;
-	/** Find everything again by itself when the page's text changes (default true). */
+	/**
+	 * Find everything again by itself when the page's text changes (default true). With a root given as a function, also watch the document for the root being replaced, and move to the
+	 * new one.
+	 */
 	readonly observe?: boolean;
 }
 
+/**
+ * Where the highlights live: an element (or any node), or a function that finds it. Given a function, the highlights follow the root when the page replaces it (a framework drawing the
+ * same text again as a new element): once the element held has left the document and the function returns another, they move there, found again and painted in it.
+ */
+export type HighlightsRoot = Node | (() => Node | null);
+
 export interface Highlights {
+	/** The element the highlights live in: with a root given as a function, the one it found last. */
 	readonly root: Node;
 	readonly document: Document;
 	/** Replace everything with what the client had stored. Reports nothing. */
@@ -119,7 +129,16 @@ function isRecord(value: unknown): value is HighlightRecord {
 	return !!r && typeof r === 'object' && r['v'] === 1 && typeof r['id'] === 'string' && !!r['id'] && typeof r['color'] === 'string' && !!r['color'] && isAnchor(r['anchor']);
 }
 
-export function createHighlights(root: Node, options: HighlightsOptions = {}): Highlights {
+/**
+ * Highlights in `rootOf`: an element, or a function that finds it, which lets them follow the element when the page replaces it (see {@link HighlightsRoot}). The function must find one now.
+ */
+export function createHighlights(rootOf: HighlightsRoot, options: HighlightsOptions = {}): Highlights {
+	const find = typeof rootOf === 'function' ? rootOf : null;
+	const first = find ? find() : (rootOf as Node);
+	if (!first) {
+		throw new Error('createHighlights: the root function found no node');
+	}
+	let root: Node = first;
 	const doc = documentOf(root);
 	const view = doc.defaultView;
 	const instance = instances.get(doc) ?? 0;
@@ -261,15 +280,59 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 	};
 	const MO = (view as unknown as { MutationObserver?: typeof MutationObserver } | null)?.MutationObserver;
 	const observer = options.observe !== false && MO ? new MO(schedule) : null;
-	observer?.observe(root, { childList: true, subtree: true, characterData: true });
+	const watch = { childList: true, subtree: true, characterData: true };
+	observer?.observe(root, watch);
+
+	// The root replaced: when the element held has left the document and the function finds another in it, the highlights move there. Records, palette, the one picked and the listeners
+	// stay; the text is indexed again, every anchor found again in it, and painted. Nothing is reported (no record changed); `onUpdate` is told, so a list redraws.
+	let disposed = false;
+	const follow = (): void => {
+		if (!find || disposed || root.isConnected) {
+			return;
+		}
+		const next = find();
+		if (!next || next === root || !next.isConnected || documentOf(next) !== doc) {
+			return;
+		}
+		root = next;
+		if (observer) {
+			observer.disconnect();
+			observer.observe(root, watch);
+		}
+		resolveAll();
+		paintAll();
+		updated();
+	};
+	// Watching the whole document costs one `isConnected` per batch of changes; the move itself waits for the next frame, so a page that takes the old element out and puts the new
+	// one in over several changes has finished by then.
+	let following = 0;
+	const cancelFrame = (id: number): void => (view?.cancelAnimationFrame ? view.cancelAnimationFrame(id) : clearTimeout(id));
+	const rootWatch =
+		find && options.observe !== false && MO
+			? new MO(() => {
+					if (following || root.isConnected) {
+						return;
+					}
+					const run = (): void => {
+						following = 0;
+						follow();
+					};
+					following = view?.requestAnimationFrame ? view.requestAnimationFrame(run) : (setTimeout(run, 16) as unknown as number);
+				})
+			: null;
+	rootWatch?.observe(doc, { childList: true, subtree: true });
 
 	writeRules();
 
 	const api: Highlights = {
-		root,
+		get root() {
+			follow();
+			return root;
+		},
 		document: doc,
 
 		load(s) {
+			follow();
 			records = (s.records ?? []).filter(isRecord);
 			const seen = new Set<string>();
 			records = records.filter((r) => !seen.has(r.id) && seen.add(r.id));
@@ -281,6 +344,7 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 		},
 
 		add(range, color = DEFAULT_COLORS[0]!.id) {
+			follow();
 			if (!entries().some((e) => e.id === color)) {
 				return null;
 			}
@@ -329,6 +393,7 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 		},
 
 		remove(id) {
+			follow();
 			if (!records.some((r) => r.id === id)) {
 				return;
 			}
@@ -343,6 +408,7 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 		},
 
 		recolor(id, color) {
+			follow();
 			const r = records.find((x) => x.id === id);
 			if (!r || r.color === color || !entries().some((e) => e.id === color)) {
 				return;
@@ -361,6 +427,7 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 		},
 
 		put(record) {
+			follow();
 			if (!isRecord(record) || !entries().some((e) => e.id === record.color)) {
 				return null;
 			}
@@ -381,6 +448,7 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 		},
 
 		at(x, y) {
+			follow();
 			const caret = caretAt(x, y, doc);
 			if (!caret) {
 				return null;
@@ -398,6 +466,7 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 		},
 
 		containing(range) {
+			follow();
 			const idx = fresh();
 			let s: number | null;
 			let e: number | null;
@@ -421,17 +490,20 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 		},
 
 		get(id) {
+			follow();
 			const r = records.find((x) => x.id === id);
 			return r ? view_(r) : null;
 		},
 
 		list() {
+			follow();
 			const all = records.map(view_);
 			const placed = all.filter((h) => !h.orphaned).sort((a, b) => found.get(a.record.id)!.span![0] - found.get(b.record.id)!.span![0]);
 			return [...placed, ...all.filter((h) => h.orphaned)];
 		},
 
 		reveal(id) {
+			follow();
 			const range = found.get(id)?.range;
 			const el = range ? (range.startContainer.nodeType === 1 ? (range.startContainer as Element) : range.startContainer.parentElement) : null;
 			el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
@@ -470,6 +542,7 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 		},
 
 		apply(change) {
+			follow();
 			const removed = new Set(change.removed);
 			const incoming = [...change.added, ...change.updated].filter(isRecord);
 			records = records.filter((r) => !removed.has(r.id));
@@ -501,12 +574,14 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 		},
 
 		refresh() {
+			follow();
 			resolveAll();
 			paintAll();
 			updated();
 		},
 
 		setActive(id) {
+			follow();
 			const next = id && records.some((r) => r.id === id) ? id : null;
 			if (next === activeId) {
 				return;
@@ -522,7 +597,15 @@ export function createHighlights(root: Node, options: HighlightsOptions = {}): H
 		},
 
 		dispose() {
+			disposed = true;
 			observer?.disconnect();
+			rootWatch?.disconnect();
+			for (const frame of [pending, following]) {
+				if (frame) {
+					cancelFrame(frame);
+				}
+			}
+			pending = following = 0;
 			media?.removeEventListener?.('change', onScheme);
 			for (const name of painted) {
 				paint(name, [], doc);
